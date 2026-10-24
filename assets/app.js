@@ -5,10 +5,12 @@ const COLORS=['#ff667b','#4d9bff','#42deb7','#ffc15d'];
 const DISPLAY_CAT=['歴史','地理','科学・自然','数学・IT','言語・文学','芸術・音楽','アニメ・ゲーム・映画','スポーツ','生活・雑学／実用'];
 const QUESTION_INTRO_MS=1100; // Show 問題 before the first character.
 const LETTER_LIMIT_MS=5000; // Each correctly entered character refreshes this deadline.
+const NEXT_BUZZ_MS=3000; // 3 seconds after full reading or an incorrect answer.
+const CHAR_REVEAL_MS=93;
 const $=id=>document.getElementById(id);
 const allCats=new Set(CATEGORIES.map((_,i)=>i));
 const config={count:4,difficulty:'B',rounds:20,categories:allCats,sound:true};
-const game={phase:'idle',pool:[],round:0,score:[0,0,0,0],misses:new Set(),q:null,revealStart:0,revealElapsed:0,shown:-1,buzzes:[],buzzStart:0,owner:null,answerStart:0,lockedAfterFull:0,wasVisibleAt:0,lastFrame:0,readings:[],typed:'',answerLimit:10000,introStart:0};
+const game={phase:'idle',pool:[],round:0,score:[0,0,0,0],misses:new Set(),q:null,revealStart:0,revealElapsed:0,shown:-1,buzzes:[],buzzStart:0,owner:null,answerStart:0,lockedAfterFull:0,wasVisibleAt:0,lastFrame:0,readings:[],typed:'',prefixes:[''],answerLimit:10000,introStart:0,rebuzzDeadline:0};
 let toastHandle=null,audio=null,frameId=null;
 function setText(id,text){const e=$(id);if(e&&e.textContent!==String(text))e.textContent=String(text)}
 function setMirrorText(id,text){setText(id,text);setText(id+'Top',text)}
@@ -76,6 +78,23 @@ function acceptedReadings(q){return q?.readings||[]}
 const HIRAGANA_POOL=Array.from('あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽぁぃぅぇぉゃゅょっゔー');
 const DIGITS=Array.from('0123456789'), LATIN=Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ'), GREEK=Array.from('αβγδεζηθικλμνξοπρστυφχψωπ');
 const MATH_SYMBOLS=Array.from('+-×÷=√π∞%°℃−―/():.、。・');
+// Similar-looking full-size / small kana must never appear together in one 4-choice set.
+// Multiple registered spellings may still be valid: merge their underlying matching paths.
+const KANA_CONFUSABLE=Object.freeze({'ぁ':'あ','ぃ':'い','ぅ':'う','ぇ':'え','ぉ':'お','ゃ':'や','ゅ':'ゆ','ょ':'よ','っ':'つ','ゎ':'わ'});
+function choiceFamily(ch){return KANA_CONFUSABLE[ch]||ch}
+function nextValidLetters(){
+ const valid=new Set();
+ for(const prefix of game.prefixes){
+  const index=Array.from(prefix).length;
+  for(const reading of game.readings){
+   if(reading.startsWith(prefix)){
+    const following=Array.from(reading)[index];
+    if(following!==undefined)valid.add(following);
+   }
+  }
+ }
+ return [...valid];
+}
 function distractorPool(ch){
  if(DIGITS.includes(ch))return DIGITS;
  if(LATIN.includes(ch))return LATIN;
@@ -84,19 +103,25 @@ function distractorPool(ch){
  return HIRAGANA_POOL;
 }
 function fourOptions(nexts){
- // Keep every valid next character visible. All stored paths currently branch at <=4.
- if(nexts.length>4)throw Error('分岐文字が4択を超えています');
- const options=[...nexts],pools=shuffle(nexts.map(distractorPool)),fallback=HIRAGANA_POOL;
- let attempts=0;
- while(options.length<4&&attempts++<100){
-  for(const group of pools){
-   const candidates=shuffle(group.filter(x=>!options.includes(x)));
-   if(candidates.length)options.push(candidates[0]);
-   if(options.length===4)break;
-  }
-  if(!pools.length)break;
+ // One visible option per look-alike family, including accepted alternative spellings.
+ const canonical=new Map();
+ for(const letter of nexts){
+  const family=choiceFamily(letter);
+  if(!canonical.has(family)||letter===family)canonical.set(family,letter);
  }
- while(options.length<4){const x=shuffle(fallback.filter(c=>!options.includes(c)))[0];options.push(x)}
+ const options=[...canonical.values()];
+ if(options.length>4)throw Error('分岐文字が4択を超えています');
+ const pools=shuffle(options.map(distractorPool)),fallback=HIRAGANA_POOL;
+ function appendFrom(pool){
+  const candidates=shuffle(pool.filter(c=>!options.some(x=>choiceFamily(x)===choiceFamily(c))));
+  if(candidates.length)options.push(candidates[0]);
+ }
+ for(const pool of pools)if(options.length<4)appendFrom(pool);
+ while(options.length<4){
+  const before=options.length;
+  appendFrom(fallback);
+  if(options.length===before)throw Error('4択の生成に失敗しました');
+ }
  return shuffle(options);
 }
 function sideOfPlayer(player){
@@ -122,7 +147,7 @@ function renderChoices(){
  const side=sideOfPlayer(game.owner).suffix;
  const target=$('choiceButtons'+side);
  setText('typedAnswer'+side,game.typed||'1文字ずつ選択');
- const nexts=[...new Set(game.readings.filter(r=>r.startsWith(game.typed)&&r.length>game.typed.length).map(r=>Array.from(r)[Array.from(game.typed).length]))];
+ const nexts=nextValidLetters();
  if(!nexts.length){judge(false);return}
  const choices=fourOptions(nexts);
  target.replaceChildren();
@@ -135,13 +160,21 @@ function renderChoices(){
 }
 function selectChar(ch){
  if(game.phase!=='answering'||!game.readings.length)return;
- // A tap arriving after the current character's deadline cannot revive it.
  if(performance.now()-game.answerStart>=game.answerLimit){judge(false);return}
- const next=game.typed+ch;
- if(!game.readings.some(r=>r.startsWith(next))){judge(false);return}
- game.typed=next;sfx('tap');
- if(game.readings.includes(next)){judge(true);return}
- // Only a valid, nonfinal character starts the next character's countdown.
+ const nextPrefixes=new Set();
+ const desired=choiceFamily(ch);
+ for(const prefix of game.prefixes){
+  const index=Array.from(prefix).length;
+  for(const reading of game.readings){
+   if(!reading.startsWith(prefix))continue;
+   const nextLetter=Array.from(reading)[index];
+   if(nextLetter!==undefined&&choiceFamily(nextLetter)===desired)nextPrefixes.add(prefix+nextLetter);
+  }
+ }
+ if(!nextPrefixes.size){judge(false);return}
+ game.prefixes=[...nextPrefixes];
+ game.typed+=ch;sfx('tap');
+ if(game.prefixes.some(prefix=>game.readings.includes(prefix))){judge(true);return}
  game.answerStart=performance.now();
  setMirrorText('answerClock',(game.answerLimit/1000).toFixed(1));
  renderChoices();
@@ -153,14 +186,37 @@ $('startBtn').onclick=async()=>{if(!config.categories.size){toast('ジャンル�
  }catch(err){toast(err.message||'データ読み込みに失敗しました');setText('loadNotice',String(err.message||err))}finally{btn.disabled=false;btn.innerHTML='ゲーム開始 <span>→</span>'}};
 function savePrefs(){try{localStorage.setItem('sideworks:quizpulse:settings',JSON.stringify({count:config.count,difficulty:config.difficulty,rounds:config.rounds,categories:[...config.categories],sound:config.sound,answerMode:'four-choice-all'}))}catch{}}
 function restorePrefs(){try{const x=JSON.parse(localStorage.getItem('sideworks:quizpulse:settings'));if(!x)return;if([2,3,4].includes(x.count))config.count=x.count;if('ABC'.includes(x.difficulty))config.difficulty=x.difficulty;if([10,20,30].includes(x.rounds))config.rounds=x.rounds;if(Array.isArray(x.categories)&&x.categories.every(n=>Number.isInteger(n)&&n>=0&&n<9))config.categories=new Set(x.categories);config.sound=x.sound!==false;/* All 9000 questions use registered four-choice inputs. */}catch{}}
-function nextRound(){showChoiceMode(false,null);showMirrors('judgeInline',false);showMirrors('answerPanel',false);show('nextBtn',false);show('showAnswerBtn',false);game.misses.clear();game.owner=null;game.buzzes=[];game.readings=[];game.typed='';
+function nextRound(){showChoiceMode(false,null);showMirrors('judgeInline',false);showMirrors('answerPanel',false);show('nextBtn',false);show('showAnswerBtn',false);game.misses.clear();game.owner=null;game.buzzes=[];game.readings=[];game.typed='';game.prefixes=[''];game.rebuzzDeadline=0;
  if(game.round>=game.pool.length){finishGame();return}
  game.q=game.pool[game.round++];game.phase='intro';game.introStart=performance.now();game.revealElapsed=0;game.shown=-1;game.revealStart=0;game.lockedAfterFull=0;
  setMirrorText('questionText','問題');showQuestionCue(true);setMirrorText('roundLabel',`ROUND ${String(game.round).padStart(2,'0')} / ${String(game.pool.length).padStart(2,'0')}`);setMirrorText('difficultyLabel',`${config.difficulty} · ${DISPLAY_CAT[game.q.cat]}`);setMirrorText('stateLabel','まもなく出題');setMirrorText('clockLabel','—');progressMirrors('0%');renderScores()}
 function elapsedReading(t){return game.revealElapsed+Math.max(0,t-game.revealStart)}
 function timeStamp(t){const now=performance.now();return Number.isFinite(t)&&t>=0&&Math.abs(t-now)<8000?t:now}
-function buzz(player,eventStamp){if((game.phase!=='reading'&&game.phase!=='pending')||game.misses.has(player))return;const t=timeStamp(eventStamp);if(game.phase==='reading'){game.revealElapsed=elapsedReading(t);game.phase='pending';game.buzzStart=performance.now();game.buzzes=[];setMirrorText('stateLabel','早押し判定中…')}
- if(!game.buzzes.some(x=>x.player===player))game.buzzes.push({player,t});sfx('buzz')}
+function buzzDeadline(){
+ if(game.rebuzzDeadline)return game.rebuzzDeadline;
+ // Measure the 3 seconds from the actual time the last character is due to appear,
+ // rather than from the next potentially delayed animation frame.
+ return game.revealStart+Math.max(0,game.q.question.length*CHAR_REVEAL_MS-game.revealElapsed)+NEXT_BUZZ_MS;
+}
+function closeBuzzWindow(){
+ if(game.phase!=='reading')return;
+ revealAnswer(game.rebuzzDeadline?'誤答後3秒・受付終了':'問読み終了後3秒・受付終了');
+}
+function buzz(player,eventStamp){
+ if((game.phase!=='reading'&&game.phase!=='pending')||game.misses.has(player))return;
+ const t=timeStamp(eventStamp);
+ if(t>=buzzDeadline()){
+  if(game.phase==='reading')closeBuzzWindow();
+  return;
+ }
+ if(game.phase==='reading'){
+  game.revealElapsed=elapsedReading(t);
+  game.phase='pending';game.buzzStart=performance.now();game.buzzes=[];
+  setMirrorText('stateLabel','早押し判定中…');
+ }
+ if(!game.buzzes.some(x=>x.player===player))game.buzzes.push({player,t});
+ sfx('buzz');
+}
 function resolveBuzz(){
  const b=game.buzzes.sort((a,b)=>a.t-b.t);game.buzzes=[];
  if(!b.length){game.phase='reading';game.revealStart=performance.now();return}
@@ -175,7 +231,7 @@ function beginAnswer(player){
  game.owner=player;
  game.phase='answering';
  game.answerStart=performance.now();
- game.readings=acceptedReadings(game.q);game.typed='';
+ game.readings=acceptedReadings(game.q);game.typed='';game.prefixes=[''];
  game.answerLimit=LETTER_LIMIT_MS;
  show('showAnswerBtn',false);
  // The other pair keeps the paused question visible; input exists only by the winner.
@@ -190,7 +246,11 @@ function beginAnswer(player){
  renderScores();
 }
 
-function judge(correct){if(game.phase!=='answering'||game.owner===null)return;const p=game.owner;showChoiceMode(false,null);showMirrors('judgeInline',false);if(correct){game.score[p]+=10;sfx('good');revealAnswer(`PLAYER ${p+1} 正解！ +10 pt`)}else{game.score[p]-=5;game.misses.add(p);sfx('bad');game.owner=null;if(game.misses.size===config.count){revealAnswer('全員不正解');return}game.phase='reading';game.revealStart=performance.now();show('showAnswerBtn',true);setMirrorText('stateLabel',`PLAYER ${p+1} 不正解 −5 · 続行`);renderScores()}}
+function judge(correct){if(game.phase!=='answering'||game.owner===null)return;const p=game.owner;showChoiceMode(false,null);showMirrors('judgeInline',false);if(correct){game.score[p]+=10;sfx('good');revealAnswer(`PLAYER ${p+1} 正解！ +10 pt`)}else{game.score[p]-=5;game.misses.add(p);sfx('bad');game.owner=null;if(game.misses.size===config.count){revealAnswer('全員不正解');return}game.phase='reading';
+ const now=performance.now();game.revealStart=now;game.rebuzzDeadline=now+NEXT_BUZZ_MS;
+ show('showAnswerBtn',true);
+ setMirrorText('stateLabel',`PLAYER ${p+1} 不正解 −5 · 残り3秒で早押し`);
+ setMirrorText('clockLabel','3.0s');renderScores()}}
 document.querySelectorAll('[data-judge]').forEach(b=>b.addEventListener('click',()=>judge(b.dataset.judge==='correct')));
 function revealAnswer(label){game.phase='reveal';showChoiceMode(false,null);showMirrors('judgeInline',false);setMirrorText('questionText',game.q.question);setMirrorText('stateLabel',label||'正解発表');setMirrorText('answerText',game.q.answer);setMirrorText('explainText',game.q.explain||'');showMirrors('answerPanel',true);show('showAnswerBtn',false);show('nextBtn',true);progressMirrors('100%');setMirrorText('clockLabel','—');renderScores()}
 $('showAnswerBtn').onclick=()=>{if(game.phase==='reading'||game.phase==='pending')revealAnswer('正解発表')};$('nextBtn').onclick=()=>nextRound();
@@ -204,16 +264,29 @@ function runFrame(now){if(now-game.lastFrame>=40){game.lastFrame=now;
   setMirrorText('stateLabel','読み上げ中 · ボタンを押して回答');setMirrorText('clockLabel','00.0');
   show('showAnswerBtn',true);renderScores();
  }
- if(game.phase==='pending'&&now-game.buzzStart>=65)resolveBuzz();if(game.phase==='reading'){
- const t=elapsedReading(now),wanted=Math.min(game.q.question.length,Math.floor(t/93));if(wanted!==game.shown){game.shown=wanted;setMirrorText('questionText',game.q.question.slice(0,wanted))}
- progressMirrors(`${Math.floor(100*wanted/Math.max(1,game.q.question.length))}%`);
- if(wanted>=game.q.question.length){if(!game.lockedAfterFull)game.lockedAfterFull=now;if(now-game.lockedAfterFull>=10000)revealAnswer('時間切れ · 正解発表')}
- else game.lockedAfterFull=0;setMirrorText('clockLabel',`${(t/1000).toFixed(1)}s`)
+ if(game.phase==='pending'&&now-game.buzzStart>=65)resolveBuzz();
+ if(game.phase==='reading'){
+  const deadline=buzzDeadline();
+  if(now>=deadline){closeBuzzWindow()}
+  else{
+   const t=elapsedReading(now);
+   const wanted=Math.min(game.q.question.length,Math.floor(t/CHAR_REVEAL_MS));
+   if(wanted!==game.shown){game.shown=wanted;setMirrorText('questionText',game.q.question.slice(0,wanted))}
+   progressMirrors(`${Math.floor(100*wanted/Math.max(1,game.q.question.length))}%`);
+   const full=wanted>=game.q.question.length;
+   if(game.rebuzzDeadline||full){
+    const remain=Math.max(0,deadline-now);
+    setMirrorText('clockLabel',`${(remain/1000).toFixed(1)}s`);
+    setMirrorText('stateLabel',game.rebuzzDeadline?'誤答後・早押し受付':'問読み終了・早押し受付');
+   }else setMirrorText('clockLabel',`${(t/1000).toFixed(1)}s`);
+  }
  }else if(game.phase==='answering'){
  const left=Math.max(0,game.answerLimit-(now-game.answerStart));setMirrorText('answerClock',(left/1000).toFixed(1));if(!left)judge(false)
  }}frameId=requestAnimationFrame(runFrame)}
 window.addEventListener('keydown',e=>{if(e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;const p=Number(e.key)-1;if(p>=0&&p<config.count){if(game.phase==='reading'||game.phase==='pending'){e.preventDefault();buzz(p,e.timeStamp)}}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){if(game.phase==='reading')game.revealElapsed=elapsedReading(performance.now());game.wasVisibleAt=performance.now()}else if(game.wasVisibleAt){const pause=performance.now()-game.wasVisibleAt;if(game.phase==='reading')game.revealStart=performance.now();if(game.phase==='answering')game.answerStart+=pause;if(game.phase==='intro')game.introStart+=pause;if(game.phase==='pending')game.buzzStart+=pause;game.wasVisibleAt=0}});
+// Deliberately do not freeze answer / buzzer deadlines when backgrounded: searching
+// in another app must never extend the 3s window or 5s per-character limit.
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)game.lastFrame=0});
 restorePrefs();setupUI();renderPlayers();renderScores();frameId=requestAnimationFrame(runFrame);
 
 // PWA lifecycle, explicit installation and full 9,000-question offline readiness.
