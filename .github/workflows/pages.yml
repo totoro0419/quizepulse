@@ -33,7 +33,20 @@ jobs:
                   expected=list(range((n-1)*1000+1,n*1000+1))
                   assert [r[0] for r in rows]==expected,p
                   assert all(len(r)>=6 and r[2] and r[3] for r in rows),p
-          print("All nine packs verified: 9000 questions")
+                  a=Path("data")/f"answers_{d}{n}.json"
+                  readings=json.loads(a.read_text(encoding="utf-8"))
+                  assert len(readings)==1000,(a,len(readings))
+                  assert [item[0] for item in readings]==expected,a
+                  for question,entry in zip(rows,readings):
+                      accepted=entry[1]
+                      assert accepted and all(isinstance(x,str) and x.strip() for x in accepted),(a,question[0])
+                      assert not any(any('\u3400'<=ch<='\u9fff' for ch in x) for x in accepted),(a,question[0])
+                      for reading in accepted:
+                          for i in range(len(reading)):
+                              prefix=reading[:i]
+                              next_letters={s[i] for s in accepted if s.startswith(prefix) and len(s)>i}
+                              assert len(next_letters)<=4,(a,question[0],prefix)
+          print("All nine packs verified: 9000 questions and 9000 four-choice answer records")
           PY
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
