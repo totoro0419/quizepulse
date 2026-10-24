@@ -8,7 +8,7 @@ const LETTER_LIMIT_MS=5000; // Each correctly entered character refreshes this d
 const $=id=>document.getElementById(id);
 const allCats=new Set(CATEGORIES.map((_,i)=>i));
 const config={count:4,difficulty:'B',rounds:20,categories:allCats,sound:true};
-const game={phase:'idle',pool:[],round:0,score:[0,0,0,0],misses:new Set(),q:null,revealStart:0,revealElapsed:0,shown:-1,buzzes:[],buzzStart:0,owner:null,answerStart:0,lockedAfterFull:0,wasVisibleAt:0,lastFrame:0,readings:[],typed:'',answerLimit:10000,confirmStart:0,confirmLimit:3000,introStart:0};
+const game={phase:'idle',pool:[],round:0,score:[0,0,0,0],misses:new Set(),q:null,revealStart:0,revealElapsed:0,shown:-1,buzzes:[],buzzStart:0,owner:null,answerStart:0,lockedAfterFull:0,wasVisibleAt:0,lastFrame:0,readings:[],typed:'',answerLimit:10000,introStart:0};
 let toastHandle=null,audio=null,frameId=null;
 function setText(id,text){const e=$(id);if(e&&e.textContent!==String(text))e.textContent=String(text)}
 function setMirrorText(id,text){setText(id,text);setText(id+'Top',text)}
@@ -37,18 +37,18 @@ $('soundBtn').onclick=()=>{config.sound=!config.sound;setText('soundBtn',config.
 $('fullBtn').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch{toast('この端末では全画面にできません')}};
 function renderPlayers(){const top=$('playersTop'),bottom=$('players');top.replaceChildren();bottom.replaceChildren();const topCount=config.count>=3?2:1;top.classList.toggle('single',topCount===1);bottom.classList.toggle('single',config.count-topCount===1);for(let p=0;p<config.count;p++){
  const b=document.createElement('button');b.type='button';b.className='buzz';b.style.setProperty('--player-color',COLORS[p]);b.dataset.player=p;
- b.innerHTML=`<span class="player-head"><span class="player-dot"></span> PLAYER ${p+1}</span><span class="player-main">0<small>pt</small></span><span class="player-foot">押して早押し · ${p+1}キー</span><span class="confirm-overlay" aria-hidden="true"><span class="confirm-caption">PLAYER ${p+1} · 解答権</span><strong class="confirm-cta">回答開始</strong><span class="confirm-timer">3.0秒</span></span>`;
- b.addEventListener('pointerdown',e=>{e.preventDefault();game.phase==='confirming'?confirmAnswer(p):buzz(p,e.timeStamp)});(p<topCount?top:bottom).appendChild(b)
+ b.innerHTML=`<span class="player-head"><span class="player-dot"></span> PLAYER ${p+1}</span><span class="player-main">0<small>pt</small></span><span class="player-foot">押して早押し · ${p+1}キー</span>`;
+ b.addEventListener('pointerdown',e=>{e.preventDefault();buzz(p,e.timeStamp)});(p<topCount?top:bottom).appendChild(b)
  }}
 function renderScores(){document.querySelectorAll('.buzz').forEach(b=>{
- const p=Number(b.dataset.player),awaiting=game.phase==='confirming'&&game.owner===p;
+ const p=Number(b.dataset.player);
  b.querySelector('.player-main').innerHTML=`${game.score[p]}<small>pt</small>`;
  b.classList.toggle('lockout',game.misses.has(p));
  b.classList.toggle('winner',game.owner===p&&game.phase==='answering');
- b.classList.toggle('await-start',awaiting);
- b.disabled=!awaiting&&(!(game.phase==='reading'||game.phase==='pending')||game.misses.has(p));
- b.setAttribute('aria-label',awaiting?`PLAYER ${p+1} 回答開始、残り3秒`: `PLAYER ${p+1} 早押し`);
- b.querySelector('.player-foot').textContent=game.misses.has(p)?'この問題は回答済み':awaiting?'もう一度押して回答開始':game.phase==='confirming'?'回答開始を待機中':game.phase==='reading'||game.phase==='pending'?'タップして早押し · '+(p+1)+'キー':'次の問題で押せます';
+ b.disabled=!(game.phase==='reading'||game.phase==='pending')||game.misses.has(p);
+ b.setAttribute('aria-label',`PLAYER ${p+1} 早押し`);
+ b.querySelector('.player-foot').textContent=game.misses.has(p)?'この問題は回答済み':
+  (game.phase==='reading'||game.phase==='pending')?'タップして早押し · '+(p+1)+'キー':'次の問題で押せます';
 })}
 
 async function loadBank(d){
@@ -99,17 +99,27 @@ function fourOptions(nexts){
  while(options.length<4){const x=shuffle(fallback.filter(c=>!options.includes(c)))[0];options.push(x)}
  return shuffle(options);
 }
+function sideOfPlayer(player){
+ const topCount=config.count>=3?2:1;
+ const onTop=player<topCount;
+ const sideCount=onTop?topCount:config.count-topCount;
+ const localIndex=onTop?player:player-topCount;
+ return {suffix:onTop?'Top':'',placement:sideCount===1?'center':localIndex===0?'left':'right'};
+}
 function showChoiceMode(enabled,owner){
- const onTop=owner!==null&&owner<(config.count>=3?2:1);
+ const activeSide=owner===null?null:sideOfPlayer(owner);
  for(const side of ['Top','']){
-  const active=owner!==null&&(side==='Top'?onTop:!onTop);
-  show('choiceEntry'+side,enabled&&active);
+  const panel=$('judgeInline'+side);
+  panel.classList.remove('answer-position-left','answer-position-right','answer-position-center');
+  const active=enabled&&activeSide?.suffix===side;
+  if(active)panel.classList.add('answer-position-'+activeSide.placement);
+  show('choiceEntry'+side,active);
   show('manualActions'+side,false);
  }
 }
 
 function renderChoices(){
- const side=game.owner<(config.count>=3?2:1)?'Top':'';
+ const side=sideOfPlayer(game.owner).suffix;
  const target=$('choiceButtons'+side);
  setText('typedAnswer'+side,game.typed||'1文字ずつ選択');
  const nexts=[...new Set(game.readings.filter(r=>r.startsWith(game.typed)&&r.length>game.typed.length).map(r=>Array.from(r)[Array.from(game.typed).length]))];
@@ -143,7 +153,7 @@ $('startBtn').onclick=async()=>{if(!config.categories.size){toast('ジャンル�
  }catch(err){toast(err.message||'データ読み込みに失敗しました');setText('loadNotice',String(err.message||err))}finally{btn.disabled=false;btn.innerHTML='ゲーム開始 <span>→</span>'}};
 function savePrefs(){try{localStorage.setItem('sideworks:quizpulse:settings',JSON.stringify({count:config.count,difficulty:config.difficulty,rounds:config.rounds,categories:[...config.categories],sound:config.sound,answerMode:'four-choice-all'}))}catch{}}
 function restorePrefs(){try{const x=JSON.parse(localStorage.getItem('sideworks:quizpulse:settings'));if(!x)return;if([2,3,4].includes(x.count))config.count=x.count;if('ABC'.includes(x.difficulty))config.difficulty=x.difficulty;if([10,20,30].includes(x.rounds))config.rounds=x.rounds;if(Array.isArray(x.categories)&&x.categories.every(n=>Number.isInteger(n)&&n>=0&&n<9))config.categories=new Set(x.categories);config.sound=x.sound!==false;/* All 9000 questions use registered four-choice inputs. */}catch{}}
-function nextRound(){showChoiceMode(false,null);showMirrors('judgeInline',false);showMirrors('answerPanel',false);show('nextBtn',false);show('showAnswerBtn',false);game.misses.clear();game.owner=null;game.confirmStart=0;game.buzzes=[];game.readings=[];game.typed='';
+function nextRound(){showChoiceMode(false,null);showMirrors('judgeInline',false);showMirrors('answerPanel',false);show('nextBtn',false);show('showAnswerBtn',false);game.misses.clear();game.owner=null;game.buzzes=[];game.readings=[];game.typed='';
  if(game.round>=game.pool.length){finishGame();return}
  game.q=game.pool[game.round++];game.phase='intro';game.introStart=performance.now();game.revealElapsed=0;game.shown=-1;game.revealStart=0;game.lockedAfterFull=0;
  setMirrorText('questionText','問題');showQuestionCue(true);setMirrorText('roundLabel',`ROUND ${String(game.round).padStart(2,'0')} / ${String(game.pool.length).padStart(2,'0')}`);setMirrorText('difficultyLabel',`${config.difficulty} · ${DISPLAY_CAT[game.q.cat]}`);setMirrorText('stateLabel','まもなく出題');setMirrorText('clockLabel','—');progressMirrors('0%');renderScores()}
@@ -155,35 +165,26 @@ function resolveBuzz(){
  const b=game.buzzes.sort((a,b)=>a.t-b.t);game.buzzes=[];
  if(!b.length){game.phase='reading';game.revealStart=performance.now();return}
  if(b.length>=2&&b[1].t-b[0].t<=6){
-  game.phase='reading';game.revealStart=performance.now();setMirrorText('stateLabel','同時押し・押し直してください');toast('6ms以内の同時押し：もう一度押してください');return;
+  game.phase='reading';game.revealStart=performance.now();
+  setMirrorText('stateLabel','同時押し・押し直してください');
+  toast('6ms以内の同時押し：もう一度押してください');return;
  }
- game.owner=b[0].player;game.phase='confirming';game.confirmStart=performance.now();
- show('showAnswerBtn',false);
- setMirrorText('stateLabel',`PLAYER ${game.owner+1} が獲得 · ボタンをもう一度押して回答開始`);
- renderScores();
+ beginAnswer(b[0].player);
 }
-function expireConfirmation(){
- if(game.phase!=='confirming'||game.owner===null)return;
- const p=game.owner;
- game.misses.add(p);game.owner=null;
- if(game.misses.size===config.count){revealAnswer('全員の解答権が終了');return}
- game.phase='reading';game.revealStart=performance.now();
- show('showAnswerBtn',true);
- setMirrorText('stateLabel',`PLAYER ${p+1} 開始期限切れ · 他の人が早押しできます`);
- renderScores();
-}
-function confirmAnswer(player){
- if(game.phase!=='confirming'||game.owner!==player)return;
- if(performance.now()-game.confirmStart>=game.confirmLimit){expireConfirmation();return}
- game.phase='answering';game.answerStart=performance.now();
+function beginAnswer(player){
+ game.owner=player;
+ game.phase='answering';
+ game.answerStart=performance.now();
  game.readings=acceptedReadings(game.q);game.typed='';
  game.answerLimit=LETTER_LIMIT_MS;
- showMirrors('judgeInline',true);showChoiceMode(true,game.owner);
- setMirrorText('judgeTitle',`PLAYER ${game.owner+1} が解答中`);
- setMirrorText('answerClock',`${(game.answerLimit/1000).toFixed(1)}`);
- setMirrorText('stateLabel',`PLAYER ${game.owner+1} 解答中`);
+ show('showAnswerBtn',false);
+ showMirrors('judgeInline',true);
+ showChoiceMode(true,player);
+ setMirrorText('judgeTitle',`PLAYER ${player+1} が解答中`);
+ setMirrorText('answerClock',(LETTER_LIMIT_MS/1000).toFixed(1));
+ setMirrorText('stateLabel',`PLAYER ${player+1} 解答中`);
  renderChoices();
- sfx('tap');renderScores();
+ renderScores();
 }
 
 function judge(correct){if(game.phase!=='answering'||game.owner===null)return;const p=game.owner;showChoiceMode(false,null);showMirrors('judgeInline',false);if(correct){game.score[p]+=10;sfx('good');revealAnswer(`PLAYER ${p+1} 正解！ +10 pt`)}else{game.score[p]-=5;game.misses.add(p);sfx('bad');game.owner=null;if(game.misses.size===config.count){revealAnswer('全員不正解');return}game.phase='reading';game.revealStart=performance.now();show('showAnswerBtn',true);setMirrorText('stateLabel',`PLAYER ${p+1} 不正解 −5 · 続行`);renderScores()}}
@@ -200,7 +201,7 @@ function runFrame(now){if(now-game.lastFrame>=40){game.lastFrame=now;
   setMirrorText('stateLabel','読み上げ中 · ボタンを押して回答');setMirrorText('clockLabel','00.0');
   show('showAnswerBtn',true);renderScores();
  }
- if(game.phase==='pending'&&now-game.buzzStart>=65)resolveBuzz();if(game.phase==='confirming'){const remaining=game.confirmLimit-(now-game.confirmStart);if(remaining<=0)expireConfirmation();else{const timer=document.querySelector('.buzz.await-start .confirm-timer');if(timer)timer.textContent=(remaining/1000).toFixed(1)+'秒'}}if(game.phase==='reading'){
+ if(game.phase==='pending'&&now-game.buzzStart>=65)resolveBuzz();if(game.phase==='reading'){
  const t=elapsedReading(now),wanted=Math.min(game.q.question.length,Math.floor(t/93));if(wanted!==game.shown){game.shown=wanted;setMirrorText('questionText',game.q.question.slice(0,wanted))}
  progressMirrors(`${Math.floor(100*wanted/Math.max(1,game.q.question.length))}%`);
  if(wanted>=game.q.question.length){if(!game.lockedAfterFull)game.lockedAfterFull=now;if(now-game.lockedAfterFull>=10000)revealAnswer('時間切れ · 正解発表')}
@@ -208,6 +209,6 @@ function runFrame(now){if(now-game.lastFrame>=40){game.lastFrame=now;
  }else if(game.phase==='answering'){
  const left=Math.max(0,game.answerLimit-(now-game.answerStart));setMirrorText('answerClock',(left/1000).toFixed(1));if(!left)judge(false)
  }}frameId=requestAnimationFrame(runFrame)}
-window.addEventListener('keydown',e=>{if(e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;const p=Number(e.key)-1;if(p>=0&&p<config.count){if(game.phase==='reading'||game.phase==='pending'){e.preventDefault();buzz(p,e.timeStamp)}else if(game.phase==='confirming'&&game.owner===p){e.preventDefault();confirmAnswer(p)}}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){if(game.phase==='reading')game.revealElapsed=elapsedReading(performance.now());game.wasVisibleAt=performance.now()}else if(game.wasVisibleAt){const pause=performance.now()-game.wasVisibleAt;if(game.phase==='reading')game.revealStart=performance.now();if(game.phase==='answering')game.answerStart+=pause;if(game.phase==='intro')game.introStart+=pause;if(game.phase==='confirming')game.confirmStart+=pause;if(game.phase==='pending')game.buzzStart+=pause;game.wasVisibleAt=0}});
+window.addEventListener('keydown',e=>{if(e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;const p=Number(e.key)-1;if(p>=0&&p<config.count){if(game.phase==='reading'||game.phase==='pending'){e.preventDefault();buzz(p,e.timeStamp)}}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(game.phase==='reading')game.revealElapsed=elapsedReading(performance.now());game.wasVisibleAt=performance.now()}else if(game.wasVisibleAt){const pause=performance.now()-game.wasVisibleAt;if(game.phase==='reading')game.revealStart=performance.now();if(game.phase==='answering')game.answerStart+=pause;if(game.phase==='intro')game.introStart+=pause;if(game.phase==='pending')game.buzzStart+=pause;game.wasVisibleAt=0}});
 restorePrefs();setupUI();renderPlayers();renderScores();frameId=requestAnimationFrame(runFrame);
