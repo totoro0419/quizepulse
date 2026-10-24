@@ -25,3 +25,11 @@ The service worker is scoped to this repository's Pages path. On the first onlin
 Icons are generated from `tools/generate_pwa_icons.py` during the Pages build (using Python standard library, no external dependencies). The PNG icon files exist in the deployed Pages artifact. Whenever the UI or bank data changes, increment the `VERSION` in `sw.js` and the cache-busting query strings in `index.html` and `sw.js` together.
 
 The PWA adds no backend, cloud variables, account system, or network multiplayer. Real-device installation and airplane-mode offline startup require independent testing.
+
+## Competitive answer deadlines
+
+- From the moment the last question character finishes appearing, other players have **3 seconds to buzz**. If nobody buzzes, the question expires and the formal answer is revealed. It never remains open for the former 10-second grace period.
+- Following any wrong or timed-out 1-character answer, the other eligible players have a fresh **3-second buzzer window**. If nobody buzzes in time, the formal answer appears.
+- A valid buzz within the 3-second deadline is honored even if the 65 ms arbitration window resolves later; pressing at/after the deadline is rejected.
+- Individual answer characters still have their own **5-second** deadlines. Switching apps or hiding the browser does not extend these deadlines.
+- Four choices **never show full-size and small kana lookalikes together** (such as い/ぃ, あ/ぁ, や/ゃ, つ/っ). If two accepted readings differ only in one such position, the displayed choice maps to both underlying valid answer paths.
