@@ -3,9 +3,10 @@
 One-device, 2–4-player Japanese buzzer quiz web app.
 
 - Four touch areas across two opposing sides, with mirrored question text.
+- At the start of every new question, both sides first display **「問題」 for 1.1 seconds**, then begin synchronized character-by-character question reveal. Buzzing is disabled during the cue.
 - 9,000-question dataset; three difficulties and nine categories.
 - Two-step answer ownership: buzz first, then only the winner can press **回答開始** on the same button within **3 seconds**.
-- The subsequent one-character four-choice input has a time limit scaled to the accepted kana reading (12–30 seconds). Questions without a verified kana reading retain a 10-second manual adjudication mode.
+- The subsequent one-character four-choice input has a **5-second time limit per character**, refreshed after every valid nonfinal character. Questions without a verified kana reading retain a 10-second manual adjudication mode.
 - If confirmation expires, that player cannot buzz again on the current question; remaining players can continue. No score penalty for missing confirmation. Answer mistakes or answer-time expiry have the existing −5-point penalty.
 - The selected player's side is the only side allowed to enter an answer. Player 1–4 keyboard keys follow the same two-step flow.
 - No internet-based multiplayer is part of this one-device mode.
