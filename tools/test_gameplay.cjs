@@ -106,3 +106,19 @@ assert.ok(!source.includes('confirmAnswer('),'removed answer-start confirmation 
 assert.ok(source.includes('QUESTION_INTRO_MS=1100'),'question cue preserved');
 assert.ok(source.includes('answers_'+String.fromCharCode(36)+'{d}'+String.fromCharCode(36)+'{n}.json'),'all 9000 question reading bundles preserved');
 console.log('QuizPulse timing and unambiguous choices: PASS');
+
+(function checkAutomaticRevealAdvance(){
+ run("game.pool=[{id:'A0001',cat:0,question:'abcdef',answer:'答',explain:'説明',readings:['あ']}];game.round=1;game.phase='reading';game.q=game.pool[0];game.owner=null;game.score=[0,0,0,0]");
+ setNow(30000);
+ run("revealAnswer('正解発表')");
+ assert.equal(run('game.phase'),'reveal','answer must be visible first');
+ assert.equal(run('game.revealAt'),30000);
+ setNow(32999);
+ run("game.lastFrame=0;runFrame(performance.now())");
+ assert.equal(run('game.phase'),'reveal','do not advance before three full seconds');
+ setNow(33000);
+ run("game.lastFrame=0;runFrame(performance.now())");
+ assert.equal(run('game.phase'),'results','end of quiz results appear automatically');
+})();
+assert.ok(source.includes('ANSWER_REVEAL_MS=3000'),'3 second answer reveal required');
+assert.ok(source.includes("screen.orientation.lock('portrait')"),'best-effort portrait lock required');
