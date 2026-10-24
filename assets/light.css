@@ -1,0 +1,131 @@
+/* QuizPulse — permanent light appearance for face-to-face play.
+   Loaded after style.css; preserves gameplay geometry and functionality. */
+:root {
+  color-scheme: light;
+  --bg: #f4f7fb;
+  --panel: #ffffff;
+  --panel2: #f7fafe;
+  --ink: #17263b;
+  --muted: #64748b;
+  --line: #dce5ef;
+  --accent: #246bdb;
+}
+html, body { background: var(--bg); color: var(--ink); }
+.app { background: #f4f7fb; }
+button:focus-visible, input:focus-visible {
+  outline: 3px solid #2776e3;
+  outline-offset: 2px;
+}
+/* Questions: white paper, ink-first hierarchy, restrained detail */
+.battle-screen { gap: 5px; padding: 6px; }
+.face { gap: 5px; }
+.mirror-question {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid #e0e7f0;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(27, 56, 96, .035);
+}
+.mirror-question .question-top { border: 0; color: #718096; }
+.mirror-question .category-pill { color: #62758a; background: #f0f5fa; border: 0; padding: 3px 8px; border-radius: 7px; }
+.mirror-question .clock { color: #53647a; }
+.mirror-question .state-name { color: #246bdb; font-weight: 750; }
+.mirror-question .question { color: #16263a; font-weight: 750; line-height: 1.53; }
+.mirror-question .answer-panel { background: #f0f7ff; border-left: 3px solid #3680e9; color: #17263b; }
+.mirror-question .answer-kicker { color: #2766c3; }
+.mirror-question .answer-title { color: #16355b; }
+.mirror-question .explain { color: #465973; }
+.mirror-question .progress, .progress { background: #e5edf6 !important; }
+.mirror-question .progress > div, .progress > div { background: #3b82ed; }
+/* Player controls: distinct identity without four heavy blocks of color */
+.seat-buttons { gap: 6px; }
+.buzz {
+  background: color-mix(in srgb, var(--player-color) 7%, #ffffff);
+  color: #1c2b3d;
+  border: 1px solid color-mix(in srgb, var(--player-color) 35%, #dae2ed);
+  border-left: 5px solid var(--player-color);
+  border-radius: 12px;
+  box-shadow: none;
+  transition: background .09s ease, box-shadow .09s ease, opacity .12s ease;
+}
+.buzz::before { display: none; }
+.buzz .player-head { color: #35455c; font-weight: 750; }
+.buzz .player-main { color: #192d47; font-weight: 850; }
+.buzz .player-main small { color: #64748b; }
+.buzz .player-foot, .buzz:enabled .player-foot { color: #52647d; font-weight: 580; }
+.buzz .player-dot { box-shadow: none; }
+.buzz:active { background: color-mix(in srgb, var(--player-color) 19%, white); transform: scale(.99); filter: none; }
+.buzz.winner { outline: 2px solid var(--player-color); outline-offset: -2px; background: color-mix(in srgb, var(--player-color) 17%, white); }
+.buzz[disabled] { opacity: .64; }
+.buzz.lockout { opacity: .38; filter: grayscale(.55); }
+/* Center: minimal utilities that do not compete with questions */
+.mid-controls { background: transparent; border: 0; border-radius: 0; gap: 6px; padding: 2px 7px; }
+.mini-brand { color: #64758a; }
+.mid-controls .control, .mini-actions .icon-btn, .icon-btn {
+  color: #354b65;
+  background: #fff;
+  border: 1px solid #dce5ef;
+  border-radius: 8px;
+}
+.mid-controls .control.primary { background: #2d70df; color: #fff; border-color: #2d70df; }
+.mid-controls .control:active, .mini-actions .icon-btn:active { background: #eaf2ff; }
+/* Answering: readable input, same on both orientations */
+.judge-inline {
+  background: #fff;
+  color: #19283e;
+  border: 0;
+}
+.judge-inline strong { color: #1a3049; }
+.judge-inline .answer-clock { color: #526987; }
+.typed-answer { color: #175bc0; }
+.choice-buttons button {
+  background: #f5f9ff;
+  color: #1a344f;
+  border: 1px solid #a9c5e9;
+  border-radius: 10px;
+  box-shadow: 0 1px 0 rgba(20,60,105,.05);
+}
+.choice-buttons button:active { background: #dceafe; }
+.judge-inline .judge-right, .judge-right { color: #fff; background: #19846a; }
+.judge-inline .judge-wrong, .judge-wrong { color: #fff; background: #c1495a; }
+/* Settings, result, toast: light, low-noise surfaces */
+.overlay { background: rgba(33,48,70,.27); backdrop-filter: blur(5px); }
+.setup-panel, .judge-card, .result-card {
+  background: #fff;
+  color: #1b2c40;
+  border: 1px solid #e0e8f1;
+  border-radius: 17px;
+  box-shadow: 0 19px 68px rgba(25,44,73,.19);
+}
+.eyebrow { color: #2c72d7; }
+.setup-top h1, .result-card h2 { color: #192b43; }
+.setup-top p, .hint, .load-notice, .judge-card > p { color: #64758b; }
+.settings-group { background: #f8fafd; border: 1px solid #e1e8f0; border-radius: 10px; }
+.settings-group legend { color: #3b4c64; }
+.choices button, .genre-tools button {
+  background: #fff;
+  border: 1px solid #d6e1ed;
+  border-radius: 8px;
+  color: #354a63;
+  font-weight: 700;
+}
+.choices button.active { color: #205fbd; background: #eaf3ff; border-color: #619ce6; }
+.genre-count { color: #2e6ec9; }
+.genre-list label, .input-preference { color: #3b506b; }
+.genre-list input, .input-preference input { accent-color: #2e76e2; }
+.start-btn { color: #fff; background: #2873df; border-radius: 10px; }
+.start-btn:hover:not(:disabled) { background: #1c61c2; }
+.start-btn:disabled { opacity: .48; }
+.result-row { border-color: #e0e8f1; background: #f9fbfe; color: #253954; }
+.toast { color: #223953; background: #fff; border: 1px solid #d5e3f0; box-shadow: 0 8px 30px rgba(30,60,95,.13); }
+@media(max-width:650px) {
+  .battle-screen { gap: 4px; padding: 4px; }
+  .mirror-question { border-radius: 10px; }
+  .seat-buttons { gap: 5px; }
+  .buzz { border-radius: 10px; border-left-width: 4px; }
+  .mid-controls { padding: 1px 3px; }
+  .mid-controls .control, .mini-actions .icon-btn { border-radius: 6px; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .buzz { transition: none; }
+}
