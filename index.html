@@ -54,7 +54,7 @@
         <fieldset class="settings-group"><legend>問題数</legend><div class="choices" id="roundChoices"><button type="button" data-rounds="10">10問</button><button type="button" data-rounds="20">20問</button><button type="button" data-rounds="30">30問</button></div></fieldset>
         <fieldset class="settings-group"><legend>ジャンル <span id="genreCount" class="genre-count"></span></legend><div class="genre-tools"><button id="allGenres" type="button">すべて選択</button><button id="noGenres" type="button">すべて解除</button></div><div id="genreChoices" class="genre-list"></div></fieldset>
       </div>
-      <div class="setup-bottom"><label class="input-preference"><input id="onlyReadable" type="checkbox" checked /> 文字入力できる問題を優先</label><button id="startBtn" type="button" class="start-btn">ゲーム開始 <span>→</span></button></div>
+      <div class="setup-bottom"><span class="input-preference">全9,000問 · 4択入力対応</span><button id="startBtn" type="button" class="start-btn">ゲーム開始 <span>→</span></button></div>
       <div id="loadNotice" class="load-notice" role="status">9,000問を収録。開始時に選択した難易度だけを読み込みます。</div>
     </div>
   </div>
@@ -62,5 +62,5 @@
   <div class="overlay hidden" id="resultOverlay" role="dialog" aria-modal="true" aria-labelledby="resultTitle"><div class="result-card"><div class="eyebrow">GAME OVER</div><h2 id="resultTitle">試合結果</h2><div id="results" class="results"></div><button id="againBtn" class="start-btn" type="button">設定に戻る ↗</button></div></div>
   <div id="toast" role="status" aria-live="polite" class="toast hidden"></div>
 </div>
-<script src="./assets/app.js?v=2" defer></script>
+<script src="./assets/app.js?v=3" defer></script>
 </body></html>
