@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QuizPulse">
+<rect width="512" height="512" rx="116" fill="#276BE5"/>
+<circle cx="256" cy="256" r="165" fill="#3985FA"/>
+<path d="M274 95L154 280h99l-36 142 154-213H268L327 95Z" fill="#fff"/>
+<path d="M113 226H73m40 60H63m349-60h27m-27 60h39" stroke="#BDE5FF" stroke-width="16" stroke-linecap="round"/>
+</svg>
