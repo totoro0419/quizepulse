@@ -178,7 +178,10 @@ function beginAnswer(player){
  game.readings=acceptedReadings(game.q);game.typed='';
  game.answerLimit=LETTER_LIMIT_MS;
  show('showAnswerBtn',false);
- showMirrors('judgeInline',true);
+ // The other pair keeps the paused question visible; input exists only by the winner.
+ const winningSide=sideOfPlayer(player).suffix;
+ show('judgeInline',winningSide==='');
+ show('judgeInlineTop',winningSide==='Top');
  showChoiceMode(true,player);
  setMirrorText('judgeTitle',`PLAYER ${player+1} が解答中`);
  setMirrorText('answerClock',(LETTER_LIMIT_MS/1000).toFixed(1));
