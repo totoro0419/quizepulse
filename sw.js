@@ -1,6 +1,6 @@
 /* QuizPulse: PWA offline shell and all 9,000 questions. Scoped to the repository path. */
 'use strict';
-const VERSION='20261024-pwa-2';
+const VERSION='20261024-pwa-3';
 const CACHE='quizpulse-pwa-'+VERSION;
 const PACKS='ABC'.split('').flatMap(d=>[1,2,3].flatMap(n=>[
   './data/'+d+n+'.json',
@@ -8,7 +8,7 @@ const PACKS='ABC'.split('').flatMap(d=>[1,2,3].flatMap(n=>[
 ]));
 const SHELL=[
   './','./index.html','./assets/style.css',
-  './assets/light.css?v=5','./assets/app.js?v=6',
+  './assets/light.css?v=7','./assets/app.js?v=7',
   './manifest.webmanifest',
   './icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png'
 ];
