@@ -215,3 +215,77 @@ function runFrame(now){if(now-game.lastFrame>=40){game.lastFrame=now;
 window.addEventListener('keydown',e=>{if(e.repeat||e.altKey||e.ctrlKey||e.metaKey)return;const p=Number(e.key)-1;if(p>=0&&p<config.count){if(game.phase==='reading'||game.phase==='pending'){e.preventDefault();buzz(p,e.timeStamp)}}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){if(game.phase==='reading')game.revealElapsed=elapsedReading(performance.now());game.wasVisibleAt=performance.now()}else if(game.wasVisibleAt){const pause=performance.now()-game.wasVisibleAt;if(game.phase==='reading')game.revealStart=performance.now();if(game.phase==='answering')game.answerStart+=pause;if(game.phase==='intro')game.introStart+=pause;if(game.phase==='pending')game.buzzStart+=pause;game.wasVisibleAt=0}});
 restorePrefs();setupUI();renderPlayers();renderScores();frameId=requestAnimationFrame(runFrame);
+
+// PWA lifecycle, explicit installation and full 9,000-question offline readiness.
+// The worker is scoped to this repository so that it cannot touch other sites.
+(()=>{
+ const installButton=$('installAppBtn');
+ const cacheButton=$('cacheOfflineBtn');
+ const statusLabel=$('pwaStatus');
+ let installEvent=null;
+ let registration=null;
+ const standalone=()=>window.matchMedia?.('(display-mode: standalone)').matches||window.navigator.standalone===true;
+ const appleMobile=()=>/iPad|iPhone|iPod/.test(navigator.userAgent)||
+  (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ function updateInstallButton(){
+  const eligible=!standalone()&&(Boolean(installEvent)||appleMobile());
+  show('installAppBtn',eligible);
+  if(eligible)installButton.textContent=appleMobile()&&!installEvent?'ホーム画面に追加':'アプリをインストール';
+ }
+ window.addEventListener('beforeinstallprompt',event=>{
+  event.preventDefault();
+  installEvent=event;
+  updateInstallButton();
+ });
+ window.addEventListener('appinstalled',()=>{
+  installEvent=null;
+  updateInstallButton();
+  statusLabel.textContent='インストール済み · オフラインデータを準備しています';
+ });
+ installButton.addEventListener('click',async()=>{
+  if(installEvent){
+   const event=installEvent;
+   installEvent=null;
+   updateInstallButton();
+   try{await event.prompt();await event.userChoice}catch(err){console.warn('PWA installation cancelled or unavailable',err)}
+   return;
+  }
+  if(appleMobile()){
+   window.alert('Safariでこのページを開き、共有ボタンから「ホーム画面に追加」を選択してください。');
+  }
+ });
+ cacheButton.addEventListener('click',()=>{
+  const worker=registration?.active||navigator.serviceWorker?.controller;
+  if(!worker){statusLabel.textContent='オフライン準備がまだ完了していません';return}
+  cacheButton.disabled=true;
+  statusLabel.textContent='9,000問を保存中…';
+  worker.postMessage({type:'QUIZPULSE_CACHE_ALL'});
+ });
+ if(!('serviceWorker' in navigator)){
+  statusLabel.textContent='このブラウザではオフライン保存に対応していません';
+  updateInstallButton();
+  return;
+ }
+ navigator.serviceWorker.addEventListener('message',event=>{
+  if(event.data?.type!=='QUIZPULSE_OFFLINE_STATUS')return;
+  const {ready,cached,total}=event.data;
+  statusLabel.textContent=ready?'オフラインでも9,000問プレイできます':`オフライン保存: ${cached}/${total} ファイル`;
+  show('cacheOfflineBtn',!ready);
+  cacheButton.disabled=false;
+ });
+ function requestStatus(){
+  const worker=registration?.active||navigator.serviceWorker.controller;
+  worker?.postMessage({type:'QUIZPULSE_CHECK_OFFLINE'});
+ }
+ navigator.serviceWorker.addEventListener('controllerchange',requestStatus);
+ statusLabel.textContent='オフラインデータを準備しています…';
+ navigator.serviceWorker.register('./sw.js',{scope:'./'}).then(async reg=>{
+  registration=reg;
+  await navigator.serviceWorker.ready;
+  requestStatus();
+ }).catch(err=>{
+  console.warn('QuizPulse PWA registration failed',err);
+  statusLabel.textContent='アプリのオフライン機能は利用できません';
+ });
+ updateInstallButton();
+})();
