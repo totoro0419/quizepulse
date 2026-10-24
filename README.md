@@ -15,3 +15,13 @@ One-device, 2–4-player Japanese buzzer quiz web app.
 Run via a static HTTP server or GitHub Pages. Direct file:// access may not load question packs.
 
 **Verification:** Code checks cover one-tap ownership, answer-side placement, 2×2 options and per-character timeout. Full browser device tests remain unverified for this revision. Physical devices remain unverified.
+
+## PWA and offline play
+
+QuizPulse can be installed on Android Chrome via the **アプリをインストール** button when the browser presents an install prompt. On iPhone/iPad, open the page in Safari and choose Share → **ホーム画面に追加**. The installed application opens directly in standalone mode.
+
+The service worker is scoped to this repository's Pages path. On the first online visit it caches the app shell plus **all 18 question/answer JSON files (9,000 questions)**. The setup screen shows whether the offline set is complete, and can retry any missing files with **9,000問をオフライン保存**. An online first visit is necessary; offline availability depends on storage being retained by the browser.
+
+Icons are generated from `tools/generate_pwa_icons.py` during the Pages build (using Python standard library, no external dependencies). The PNG icon files exist in the deployed Pages artifact. Whenever the UI or bank data changes, increment the `VERSION` in `sw.js` and the cache-busting query strings in `index.html` and `sw.js` together.
+
+The PWA adds no backend, cloud variables, account system, or network multiplayer. Real-device installation and airplane-mode offline startup require independent testing.
