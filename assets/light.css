@@ -129,3 +129,13 @@ button:focus-visible, input:focus-visible {
 @media(prefers-reduced-motion: reduce) {
   .buzz { transition: none; }
 }
+/* Two-step buzzer ownership: the winning player's original button is reused. */
+.buzz{position:relative}
+.confirm-overlay{display:none;position:absolute;inset:0;z-index:2;align-items:center;justify-content:center;flex-direction:column;gap:2px;padding:5px;background:color-mix(in srgb,var(--player-color) 19%,white);color:#17304d;pointer-events:none;text-align:center}
+.buzz.await-start{opacity:1;outline:2px solid var(--player-color);outline-offset:-2px;cursor:pointer}
+.buzz.await-start .confirm-overlay{display:flex}
+.buzz.await-start:active .confirm-overlay{background:color-mix(in srgb,var(--player-color) 28%,white)}
+.confirm-caption{font-size:clamp(10px,1.5vw,13px);font-weight:700;color:#435873}
+.confirm-cta{font-size:clamp(18px,4.8vh,30px);font-weight:900;line-height:1.1;color:#17304d}
+.confirm-timer{font-size:clamp(13px,2.8vh,19px);font-variant-numeric:tabular-nums;font-weight:800;color:#235caa}
+@media(max-height:550px){.confirm-overlay{gap:0;padding:2px}.confirm-cta{font-size:clamp(14px,4vh,23px)}.confirm-caption{font-size:9px}.confirm-timer{font-size:11px}}
