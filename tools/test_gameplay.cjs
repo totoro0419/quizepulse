@@ -35,6 +35,8 @@ const sandbox={console,document,
  localStorage:{getItem(){return null},setItem(){}},
  requestAnimationFrame(){return 1},setTimeout(){return 1},clearTimeout(){},confirm(){return true}
 };
+// window.navigator and global navigator are the same object in browsers.
+sandbox.window.navigator=sandbox.navigator;
 vm.createContext(sandbox);
 new vm.Script(source,{filename:'app.js'}).runInContext(sandbox);
 function run(code){return vm.runInContext(code,sandbox)}
