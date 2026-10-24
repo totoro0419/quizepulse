@@ -33,3 +33,11 @@ The PWA adds no backend, cloud variables, account system, or network multiplayer
 - A valid buzz within the 3-second deadline is honored even if the 65 ms arbitration window resolves later; pressing at/after the deadline is rejected.
 - Individual answer characters still have their own **5-second** deadlines. Switching apps or hiding the browser does not extend these deadlines.
 - Four choices **never show full-size and small kana lookalikes together** (such as い/ぃ, あ/ぁ, や/ゃ, つ/っ). If two accepted readings differ only in one such position, the displayed choice maps to both underlying valid answer paths.
+
+## Automatic next question and portrait view
+
+After any formal answer reveal—correct answer, all players failed, manually revealed, or question/answer timeout—QuizPulse **automatically moves to the next question after 3 seconds**. The existing "次へ" button can skip that countdown, but is not required. After the final question, the results screen opens automatically. During answer reveal both faces show the same countdown.
+
+Question, answer and explanation typography is enlarged while keeping the same two-sided touchscreen layout. Long questions scroll within their own panels rather than obscuring the buzzer buttons.
+
+The PWA manifest requests **portrait-primary** on phone/tablet installation. The app also makes a best-effort Screen Orientation API portrait lock on supported touch devices during PWA launch and when starting or entering fullscreen. Ordinary mobile browsers and some operating systems may reject this lock; web apps cannot guarantee hardware rotation in unsupported contexts. Landscape layout remains usable as fallback.
