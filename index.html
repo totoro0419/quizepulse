@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#080e1d" />
+  <meta name="description" content="QuizPulse | 1台で最大4人の早押しクイズ。オフライン通信不要、9,000問から出題。" />
+  <title>QuizPulse — 1画面早押し</title>
+  <link rel="stylesheet" href="./assets/style.css" />
+</head>
+<body>
+<div class="app" id="app">
+  <main class="battle-screen" id="battleScreen">
+      <section class="face face-top" aria-label="上プレイヤーの操作エリア">
+        <section class="mirror-question" aria-live="polite">
+          <div class="question-top"><span class="round-display" id="roundLabelTop">ROUND 00 / 00</span><span class="category-pill" id="difficultyLabelTop">1画面対戦</span><span class="clock" id="clockLabelTop">00.0</span></div>
+          <div class="question-frame">
+            <div class="state-name" id="stateLabelTop">開始を待っています</div>
+            <p class="question" id="questionTextTop">同じ問題を上下に表示します</p>
+            <div class="answer-panel hidden" id="answerPanelTop"><div class="answer-kicker">正解</div><div class="answer-title" id="answerTextTop"></div><p class="explain" id="explainTextTop"></p></div>
+            <div class="judge-inline hidden" id="judgeInlineTop"><strong id="judgeTitleTop">回答中</strong><span class="answer-clock" id="answerClockTop">10.0</span><div class="judge-actions"><button class="judge-right" type="button" data-judge="correct">✓ 正解</button><button class="judge-wrong" type="button" data-judge="wrong">× 不正解</button></div></div>
+          </div>
+          <div class="progress"><div id="progressBarTop"></div></div>
+        </section>
+        <section class="seat-buttons" id="playersTop" aria-label="上側の早押しボタン"></section>
+      </section>
+    <nav class="mid-controls" aria-label="共通進行操作">
+      <div class="mini-brand"><span>⚡</span> QuizPulse</div>
+      <div class="main-controls"><button id="showAnswerBtn" type="button" class="control secondary">答えを見る</button><button id="nextBtn" type="button" class="control primary hidden">次の問題 →</button><button id="settingsBtn" type="button" class="control ghost">設定</button></div>
+      <div class="mini-actions"><button class="icon-btn" id="soundBtn" type="button" aria-label="効果音の切替" title="効果音">♪</button><button class="icon-btn" id="fullBtn" type="button" aria-label="全画面に切り替え" title="全画面">⛶</button></div>
+    </nav>
+      <section class="face face-bottom" aria-label="下プレイヤーの操作エリア">
+        <section class="mirror-question" aria-live="polite">
+          <div class="question-top"><span class="round-display" id="roundLabel">ROUND 00 / 00</span><span class="category-pill" id="difficultyLabel">1画面対戦</span><span class="clock" id="clockLabel">00.0</span></div>
+          <div class="question-frame">
+            <div class="state-name" id="stateLabel">開始を待っています</div>
+            <p class="question" id="questionText">同じ問題を上下に表示します</p>
+            <div class="answer-panel hidden" id="answerPanel"><div class="answer-kicker">正解</div><div class="answer-title" id="answerText"></div><p class="explain" id="explainText"></p></div>
+            <div class="judge-inline hidden" id="judgeInline"><strong id="judgeTitle">回答中</strong><span class="answer-clock" id="answerClock">10.0</span><div class="judge-actions"><button class="judge-right" type="button" data-judge="correct">✓ 正解</button><button class="judge-wrong" type="button" data-judge="wrong">× 不正解</button></div></div>
+          </div>
+          <div class="progress"><div id="progressBar"></div></div>
+        </section>
+        <section class="seat-buttons" id="players" aria-label="下側の早押しボタン"></section>
+      </section>
+  </main>
+
+  <div class="overlay" id="setupOverlay" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <div class="setup-panel">
+      <div class="setup-top"><div><div class="eyebrow">ONE DEVICE · UP TO FOUR PLAYERS</div><h1 id="setupTitle">向かい合って、早押し。</h1><p>上側に2人、下側に2人。同じ問題を反対向きに表示します。</p></div><div class="spark">⚡</div></div>
+      <div class="setup-grid">
+        <fieldset class="settings-group"><legend>参加人数</legend><div class="choices" id="playerChoices"><button type="button" data-count="2">2人</button><button type="button" data-count="3">3人</button><button type="button" data-count="4">4人</button></div></fieldset>
+        <fieldset class="settings-group"><legend>難易度</legend><div class="choices" id="difficultyChoices"><button type="button" data-difficulty="A">A 初級</button><button type="button" data-difficulty="B">B 中級</button><button type="button" data-difficulty="C">C 上級</button></div></fieldset>
+        <fieldset class="settings-group"><legend>問題数</legend><div class="choices" id="roundChoices"><button type="button" data-rounds="10">10問</button><button type="button" data-rounds="20">20問</button><button type="button" data-rounds="30">30問</button></div></fieldset>
+        <fieldset class="settings-group"><legend>ジャンル <span id="genreCount" class="genre-count"></span></legend><div class="genre-tools"><button id="allGenres" type="button">すべて選択</button><button id="noGenres" type="button">すべて解除</button></div><div id="genreChoices" class="genre-list"></div></fieldset>
+      </div>
+      <div class="setup-bottom"><div class="hint">問題は上下で完全同期。口頭で回答し、どちら側からも正誤を判定できます。</div><button id="startBtn" type="button" class="start-btn">ゲーム開始 <span>→</span></button></div>
+      <div id="loadNotice" class="load-notice" role="status">9,000問を収録。開始時に選択した難易度だけを読み込みます。</div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="resultOverlay" role="dialog" aria-modal="true" aria-labelledby="resultTitle"><div class="result-card"><div class="eyebrow">GAME OVER</div><h2 id="resultTitle">試合結果</h2><div id="results" class="results"></div><button id="againBtn" class="start-btn" type="button">設定に戻る ↗</button></div></div>
+  <div id="toast" role="status" aria-live="polite" class="toast hidden"></div>
+</div>
+<script src="./assets/app.js" defer></script>
+</body></html>
