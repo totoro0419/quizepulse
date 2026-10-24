@@ -1,0 +1,43 @@
+name: Build and publish QuizPulse
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: quizpulse-pages
+  cancel-in-progress: true
+jobs:
+  verify-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax and all 9000 questions
+        shell: bash
+        run: |
+          node --check assets/app.js
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for d in "ABC":
+              for n in range(1,4):
+                  p=Path("data")/f"{d}{n}.json"
+                  rows=json.loads(p.read_text(encoding="utf-8"))
+                  assert len(rows)==1000,(p,len(rows))
+                  expected=list(range((n-1)*1000+1,n*1000+1))
+                  assert [r[0] for r in rows]==expected,p
+                  assert all(len(r)>=6 and r[2] and r[3] for r in rows),p
+          print("All nine packs verified: 9000 questions")
+          PY
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
