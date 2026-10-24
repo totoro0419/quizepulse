@@ -7,7 +7,7 @@ const QUESTION_INTRO_MS=1100; // Show 問題 before the first character.
 const LETTER_LIMIT_MS=5000; // Each correctly entered character refreshes this deadline.
 const $=id=>document.getElementById(id);
 const allCats=new Set(CATEGORIES.map((_,i)=>i));
-const config={count:4,difficulty:'B',rounds:20,categories:allCats,sound:true,onlyReadable:true};
+const config={count:4,difficulty:'B',rounds:20,categories:allCats,sound:true};
 const game={phase:'idle',pool:[],round:0,score:[0,0,0,0],misses:new Set(),q:null,revealStart:0,revealElapsed:0,shown:-1,buzzes:[],buzzStart:0,owner:null,answerStart:0,lockedAfterFull:0,wasVisibleAt:0,lastFrame:0,readings:[],typed:'',answerLimit:10000,confirmStart:0,confirmLimit:3000,introStart:0};
 let toastHandle=null,audio=null,frameId=null;
 function setText(id,text){const e=$(id);if(e&&e.textContent!==String(text))e.textContent=String(text)}
@@ -28,13 +28,11 @@ function setupUI(){
  document.querySelectorAll('[data-count]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.count)===config.count);b.onclick=()=>{config.count=Number(b.dataset.count);setupUI()}});
  document.querySelectorAll('[data-difficulty]').forEach(b=>{b.classList.toggle('active',b.dataset.difficulty===config.difficulty);b.onclick=()=>{config.difficulty=b.dataset.difficulty;setupUI()}});
  document.querySelectorAll('[data-rounds]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.rounds)===config.rounds);b.onclick=()=>{config.rounds=Number(b.dataset.rounds);setupUI()}});
- $('onlyReadable').checked=config.onlyReadable;
  const genres=$('genreChoices');genres.replaceChildren();CATEGORIES.forEach((c,i)=>{const l=document.createElement('label'),inp=document.createElement('input');inp.type='checkbox';inp.checked=config.categories.has(i);inp.onchange=()=>{inp.checked?config.categories.add(i):config.categories.delete(i);setText('genreCount',`${config.categories.size}/9`);$('startBtn').disabled=!config.categories.size};const span=document.createElement('span');span.textContent=c;l.append(inp,span);genres.append(l)});
  setText('genreCount',`${config.categories.size}/9`);$('startBtn').disabled=!config.categories.size;
 }
 $('allGenres').onclick=()=>{config.categories=new Set(CATEGORIES.map((_,i)=>i));setupUI()};
 $('noGenres').onclick=()=>{config.categories=new Set();setupUI()};
-$('onlyReadable').onchange=e=>{config.onlyReadable=e.target.checked};
 $('soundBtn').onclick=()=>{config.sound=!config.sound;setText('soundBtn',config.sound?'♪':'♩')};
 $('fullBtn').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch{toast('この端末では全画面にできません')}};
 function renderPlayers(){const top=$('playersTop'),bottom=$('players');top.replaceChildren();bottom.replaceChildren();const topCount=config.count>=3?2:1;top.classList.toggle('single',topCount===1);bottom.classList.toggle('single',config.count-topCount===1);for(let p=0;p<config.count;p++){
@@ -53,24 +51,60 @@ function renderScores(){document.querySelectorAll('.buzz').forEach(b=>{
  b.querySelector('.player-foot').textContent=game.misses.has(p)?'この問題は回答済み':awaiting?'もう一度押して回答開始':game.phase==='confirming'?'回答開始を待機中':game.phase==='reading'||game.phase==='pending'?'タップして早押し · '+(p+1)+'キー':'次の問題で押せます';
 })}
 
-async function loadBank(d){const ids=[1,2,3];const packs=await Promise.all(ids.map(async n=>{const url=`./data/${d}${n}.json`;const res=await fetch(url,{cache:'force-cache'});if(!res.ok)throw Error(`データ取得失敗: ${url}`);const x=await res.json();if(!Array.isArray(x)||x.length!==1000)throw Error(`不正な問題データ: ${url}`);return x}));return packs.flat().map(e=>({id:d+String(e[0]).padStart(4,'0'),cat:e[1],question:e[2],answer:e[3],explain:e[4],alt:e[5]}))}
-// A question without an established phonetic reading must not silently guess kanji.
-function normalizeReading(text){
- if(typeof text!=='string')return null;
- const clean=text.normalize('NFKC').trim().replace(/[\s・･／/＝=]/g,'');
- if(!/^[\u3041-\u3096\u30a1-\u30f6ー]+$/.test(clean))return null;
- return Array.from(clean).map(ch=>ch>='ァ'&&ch<='ヶ'?String.fromCharCode(ch.charCodeAt(0)-96):ch).join('');
+async function loadBank(d){
+ const ids=[1,2,3];
+ const packs=await Promise.all(ids.map(async n=>{
+  const [questionsResponse,answersResponse]=await Promise.all([
+   fetch(`./data/${d}${n}.json`,{cache:'force-cache'}),
+   fetch(`./data/answers_${d}${n}.json`,{cache:'force-cache'})
+  ]);
+  if(!questionsResponse.ok||!answersResponse.ok)throw Error(`問題または解答の読み込み失敗: ${d}${n}`);
+  const [questions,answers]=await Promise.all([questionsResponse.json(),answersResponse.json()]);
+  if(!Array.isArray(questions)||questions.length!==1000||!Array.isArray(answers)||answers.length!==1000)throw Error(`問題・解答データ数が不正: ${d}${n}`);
+  const offset=(n-1)*1000;
+  return questions.map((e,i)=>{
+   const numericId=offset+i+1,registered=answers[i];
+   if(e[0]!==numericId||!Array.isArray(registered)||registered[0]!==numericId||!Array.isArray(registered[1])||!registered[1].length)throw Error(`問題と入力用読みが不一致: ${d}${numericId}`);
+   const readings=[...new Set(registered[1].map(x=>String(x).normalize('NFKC').trim()))];
+   if(readings.some(x=>!x||/[一-龥々]/u.test(x)))throw Error(`解答文字列に未変換の漢字: ${d}${numericId}`);
+   return {id:d+String(numericId).padStart(4,'0'),cat:e[1],question:e[2],answer:e[3],explain:e[4],alt:e[5],readings};
+  });
+ }));
+ return packs.flat();
 }
-function acceptedReadings(q){
- return [...new Set([q.answer,...(Array.isArray(q.alt)?q.alt:[])].map(normalizeReading).filter(Boolean))];
-}
+function acceptedReadings(q){return q?.readings||[]}
 const HIRAGANA_POOL=Array.from('あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽぁぃぅぇぉゃゅょっゔー');
+const DIGITS=Array.from('0123456789'), LATIN=Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ'), GREEK=Array.from('αβγδεζηθικλμνξοπρστυφχψωπ');
+const MATH_SYMBOLS=Array.from('+-×÷=√π∞%°℃−―/():.、。・');
+function distractorPool(ch){
+ if(DIGITS.includes(ch))return DIGITS;
+ if(LATIN.includes(ch))return LATIN;
+ if(GREEK.includes(ch))return GREEK;
+ if(MATH_SYMBOLS.includes(ch))return MATH_SYMBOLS;
+ return HIRAGANA_POOL;
+}
+function fourOptions(nexts){
+ // Keep every valid next character visible. All stored paths currently branch at <=4.
+ if(nexts.length>4)throw Error('分岐文字が4択を超えています');
+ const options=[...nexts],pools=shuffle(nexts.map(distractorPool)),fallback=HIRAGANA_POOL;
+ let attempts=0;
+ while(options.length<4&&attempts++<100){
+  for(const group of pools){
+   const candidates=shuffle(group.filter(x=>!options.includes(x)));
+   if(candidates.length)options.push(candidates[0]);
+   if(options.length===4)break;
+  }
+  if(!pools.length)break;
+ }
+ while(options.length<4){const x=shuffle(fallback.filter(c=>!options.includes(c)))[0];options.push(x)}
+ return shuffle(options);
+}
 function showChoiceMode(enabled,owner){
  const onTop=owner!==null&&owner<(config.count>=3?2:1);
  for(const side of ['Top','']){
   const active=owner!==null&&(side==='Top'?onTop:!onTop);
   show('choiceEntry'+side,enabled&&active);
-  show('manualActions'+side,!enabled&&active);
+  show('manualActions'+side,false);
  }
 }
 
@@ -80,8 +114,7 @@ function renderChoices(){
  setText('typedAnswer'+side,game.typed||'1文字ずつ選択');
  const nexts=[...new Set(game.readings.filter(r=>r.startsWith(game.typed)&&r.length>game.typed.length).map(r=>Array.from(r)[Array.from(game.typed).length]))];
  if(!nexts.length){judge(false);return}
- if(nexts.length>4){showChoiceMode(false,game.owner);return}
- const choices=shuffle([...nexts,...shuffle(HIRAGANA_POOL.filter(ch=>!nexts.includes(ch))).slice(0,4-nexts.length)]);
+ const choices=fourOptions(nexts);
  target.replaceChildren();
  for(const ch of choices){
   const button=document.createElement('button');
@@ -105,11 +138,11 @@ function selectChar(ch){
 }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const n=Math.floor(Math.random()*(i+1));[a[i],a[n]]=[a[n],a[i]]}return a}
 $('startBtn').onclick=async()=>{if(!config.categories.size){toast('ジャンルを一つ以上選択してください');return}const btn=$('startBtn');btn.disabled=true;btn.textContent='問題を読み込み中…';try{
- let bank=await loadBank(config.difficulty);bank=bank.filter(q=>config.categories.has(q.cat));if(config.onlyReadable)bank=bank.filter(q=>acceptedReadings(q).length>0);if(bank.length<config.rounds){throw Error('選択した問題が不足しています')}
+ let bank=await loadBank(config.difficulty);bank=bank.filter(q=>config.categories.has(q.cat));if(bank.some(q=>!acceptedReadings(q).length))throw Error('入力用読みのない問題が検出されました');if(bank.length<config.rounds){throw Error('選択した問題が不足しています')}
  game.pool=shuffle(bank).slice(0,config.rounds);game.round=0;game.score=[0,0,0,0];game.phase='ready';savePrefs();renderPlayers();show('setupOverlay',false);nextRound()
  }catch(err){toast(err.message||'データ読み込みに失敗しました');setText('loadNotice',String(err.message||err))}finally{btn.disabled=false;btn.innerHTML='ゲーム開始 <span>→</span>'}};
-function savePrefs(){try{localStorage.setItem('sideworks:quizpulse:settings',JSON.stringify({count:config.count,difficulty:config.difficulty,rounds:config.rounds,categories:[...config.categories],sound:config.sound,onlyReadable:config.onlyReadable}))}catch{}}
-function restorePrefs(){try{const x=JSON.parse(localStorage.getItem('sideworks:quizpulse:settings'));if(!x)return;if([2,3,4].includes(x.count))config.count=x.count;if('ABC'.includes(x.difficulty))config.difficulty=x.difficulty;if([10,20,30].includes(x.rounds))config.rounds=x.rounds;if(Array.isArray(x.categories)&&x.categories.every(n=>Number.isInteger(n)&&n>=0&&n<9))config.categories=new Set(x.categories);config.sound=x.sound!==false;config.onlyReadable=x.onlyReadable!==false}catch{}}
+function savePrefs(){try{localStorage.setItem('sideworks:quizpulse:settings',JSON.stringify({count:config.count,difficulty:config.difficulty,rounds:config.rounds,categories:[...config.categories],sound:config.sound,answerMode:'four-choice-all'}))}catch{}}
+function restorePrefs(){try{const x=JSON.parse(localStorage.getItem('sideworks:quizpulse:settings'));if(!x)return;if([2,3,4].includes(x.count))config.count=x.count;if('ABC'.includes(x.difficulty))config.difficulty=x.difficulty;if([10,20,30].includes(x.rounds))config.rounds=x.rounds;if(Array.isArray(x.categories)&&x.categories.every(n=>Number.isInteger(n)&&n>=0&&n<9))config.categories=new Set(x.categories);config.sound=x.sound!==false;/* All 9000 questions use registered four-choice inputs. */}catch{}}
 function nextRound(){showChoiceMode(false,null);showMirrors('judgeInline',false);showMirrors('answerPanel',false);show('nextBtn',false);show('showAnswerBtn',false);game.misses.clear();game.owner=null;game.confirmStart=0;game.buzzes=[];game.readings=[];game.typed='';
  if(game.round>=game.pool.length){finishGame();return}
  game.q=game.pool[game.round++];game.phase='intro';game.introStart=performance.now();game.revealElapsed=0;game.shown=-1;game.revealStart=0;game.lockedAfterFull=0;
@@ -144,12 +177,12 @@ function confirmAnswer(player){
  if(performance.now()-game.confirmStart>=game.confirmLimit){expireConfirmation();return}
  game.phase='answering';game.answerStart=performance.now();
  game.readings=acceptedReadings(game.q);game.typed='';
- game.answerLimit=game.readings.length?LETTER_LIMIT_MS:10000;
- showMirrors('judgeInline',true);showChoiceMode(game.readings.length>0,game.owner);
+ game.answerLimit=LETTER_LIMIT_MS;
+ showMirrors('judgeInline',true);showChoiceMode(true,game.owner);
  setMirrorText('judgeTitle',`PLAYER ${game.owner+1} が解答中`);
  setMirrorText('answerClock',`${(game.answerLimit/1000).toFixed(1)}`);
  setMirrorText('stateLabel',`PLAYER ${game.owner+1} 解答中`);
- if(game.readings.length)renderChoices();
+ renderChoices();
  sfx('tap');renderScores();
 }
 
