@@ -129,18 +129,86 @@ button:focus-visible, input:focus-visible {
 @media(prefers-reduced-motion: reduce) {
   .buzz { transition: none; }
 }
-/* Two-step buzzer ownership: the winning player's original button is reused. */
-.buzz{position:relative}
-.confirm-overlay{display:none;position:absolute;inset:0;z-index:2;align-items:center;justify-content:center;flex-direction:column;gap:2px;padding:5px;background:color-mix(in srgb,var(--player-color) 19%,white);color:#17304d;pointer-events:none;text-align:center}
-.buzz.await-start{opacity:1;outline:2px solid var(--player-color);outline-offset:-2px;cursor:pointer}
-.buzz.await-start .confirm-overlay{display:flex}
-.buzz.await-start:active .confirm-overlay{background:color-mix(in srgb,var(--player-color) 28%,white)}
-.confirm-caption{font-size:clamp(10px,1.5vw,13px);font-weight:700;color:#435873}
-.confirm-cta{font-size:clamp(18px,4.8vh,30px);font-weight:900;line-height:1.1;color:#17304d}
-.confirm-timer{font-size:clamp(13px,2.8vh,19px);font-variant-numeric:tabular-nums;font-weight:800;color:#235caa}
-@media(max-height:550px){.confirm-overlay{gap:0;padding:2px}.confirm-cta{font-size:clamp(14px,4vh,23px)}.confirm-caption{font-size:9px}.confirm-timer{font-size:11px}}
-
 /* New question: a quiet, centered cue in BOTH mirrored reading panels. */
 .mirror-question .question-frame.question-cue-frame{justify-content:center;align-items:center}
 .mirror-question .question.question-cue{font-size:clamp(25px,5vmin,38px);font-weight:900;letter-spacing:.12em;color:#205fb5;text-align:center}
 .mirror-question .question-cue-frame .state-name{align-self:center;font-size:10px;color:#8292a7}
+
+/* Two players share each side's four-choice input; position next to the
+   winner's physical seat. The top panel rotates 180deg as a whole. */
+.judge-inline.answer-position-left,
+.judge-inline.answer-position-right,
+.judge-inline.answer-position-center{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  justify-items:stretch;
+  align-content:center;
+  column-gap:5px;
+  row-gap:2px;
+  padding:6px;
+  min-width:0;
+}
+.judge-inline.answer-position-left,
+.judge-inline.answer-position-right{
+  width:60%;
+  max-width:370px;
+  border:1px solid #d1e2f4;
+  border-radius:10px;
+  background:#f9fcff;
+  box-shadow:0 2px 10px rgba(29,69,110,.09);
+}
+.judge-inline.answer-position-left{left:0;right:auto}
+.judge-inline.answer-position-right{left:auto;right:0}
+.judge-inline.answer-position-center{left:0;right:0;width:100%}
+.judge-inline.answer-position-left strong,
+.judge-inline.answer-position-right strong,
+.judge-inline.answer-position-center strong{
+  color:#1a3049;
+  font-size:clamp(10px,1.3vw,14px);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0;
+}
+.judge-inline.answer-position-left .answer-clock,
+.judge-inline.answer-position-right .answer-clock,
+.judge-inline.answer-position-center .answer-clock{
+  font-size:clamp(11px,1.4vw,16px);
+  margin:0;
+  text-align:right;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+.judge-inline.answer-position-left .choice-entry,
+.judge-inline.answer-position-right .choice-entry,
+.judge-inline.answer-position-center .choice-entry{
+  grid-column:1/-1;
+  min-width:0;
+  width:100%;
+  gap:3px;
+}
+.judge-inline .typed-answer{min-height:0;padding:0 2px;font-size:clamp(11px,1.8vw,17px)}
+.judge-inline .choice-buttons{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-rows:repeat(2,minmax(0,1fr));
+  gap:4px;
+}
+.judge-inline .choice-buttons button{
+  min-height:clamp(28px,5.8vh,52px);
+  padding:0 4px;
+  font-size:clamp(17px,3.6vmin,25px);
+  line-height:1.1;
+  font-weight:800;
+}
+@media(max-height:550px){
+ .judge-inline.answer-position-left,
+ .judge-inline.answer-position-right,
+ .judge-inline.answer-position-center{padding:3px;row-gap:1px}
+ .judge-inline .choice-entry{gap:1px}
+ .judge-inline .choice-buttons{gap:3px}
+ .judge-inline .choice-buttons button{min-height:26px}
+ .judge-inline .typed-answer{font-size:11px}
+}
