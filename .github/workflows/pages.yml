@@ -22,6 +22,23 @@ jobs:
         shell: bash
         run: |
           node --check assets/app.js
+          node --check sw.js
+          python3 -m json.tool manifest.webmanifest > /dev/null
+          python3 tools/generate_pwa_icons.py
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          m=json.loads(Path('manifest.webmanifest').read_text(encoding='utf-8'))
+          assert m['start_url'].startswith('./') and m['scope']=='./'
+          for icon in m['icons']:
+              path=Path(icon['src'].removeprefix('./'))
+              data=path.read_bytes()
+              assert data[:8]==b'\\x89PNG\\r\\n\\x1a\\n'
+              width,height=struct.unpack('!II',data[16:24])
+              assert f'{width}x{height}'==icon['sizes']
+          assert 'serviceWorker.register' in Path('assets/app.js').read_text(encoding='utf-8')
+          print('PWA manifest, service worker and 192/512 PNG icons validated')
+          PY
           python3 - <<'PY'
           import json
           from pathlib import Path
