@@ -139,3 +139,8 @@ button:focus-visible, input:focus-visible {
 .confirm-cta{font-size:clamp(18px,4.8vh,30px);font-weight:900;line-height:1.1;color:#17304d}
 .confirm-timer{font-size:clamp(13px,2.8vh,19px);font-variant-numeric:tabular-nums;font-weight:800;color:#235caa}
 @media(max-height:550px){.confirm-overlay{gap:0;padding:2px}.confirm-cta{font-size:clamp(14px,4vh,23px)}.confirm-caption{font-size:9px}.confirm-timer{font-size:11px}}
+
+/* New question: a quiet, centered cue in BOTH mirrored reading panels. */
+.mirror-question .question-frame.question-cue-frame{justify-content:center;align-items:center}
+.mirror-question .question.question-cue{font-size:clamp(25px,5vmin,38px);font-weight:900;letter-spacing:.12em;color:#205fb5;text-align:center}
+.mirror-question .question-cue-frame .state-name{align-self:center;font-size:10px;color:#8292a7}
