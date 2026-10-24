@@ -212,3 +212,11 @@ button:focus-visible, input:focus-visible {
  .judge-inline .choice-buttons button{min-height:26px}
  .judge-inline .typed-answer{font-size:11px}
 }
+
+/* Install and full-data offline controls, shown only when applicable */
+.pwa-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:11px}
+.pwa-button{border:1px solid #2c73dc;border-radius:9px;background:#2e74dd;color:#fff;font:inherit;font-size:12px;font-weight:750;padding:9px 12px;min-height:39px;cursor:pointer}
+.pwa-button.secondary{border-color:#c5d9f4;background:#ecf4ff;color:#2359a4}
+.pwa-button:disabled{opacity:.48;cursor:wait}
+.pwa-status{font-size:11px;color:#57718f;line-height:1.5}
+@media(max-width:520px){.pwa-row{gap:6px}.pwa-button{font-size:11px;min-height:35px}}
